@@ -16,7 +16,7 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
-  const { name,email,idPais,idProvincia,direccion,celular,telefono,fechaNacimiento,idTipo,pass,Apellido1,Apellido2 } = await req.json()
+  const { name,email,idPais,idProvincia,direccion,celular,telefono,fechaNacimiento,idTipo,pass,Apellido1,Apellido2,idMiembro } = await req.json()
   
 
   try {
@@ -30,16 +30,28 @@ serve(async (req) => {
 
     const adminAuthClient = supabaseClient.auth.admin;
 
+    let response;
 
-    const { data, error } = await adminAuthClient.createUser({
+    if(idMiembro){
+
+      response = await adminAuthClient.updateUserById(
+        '6aa5d0d4-2a9f-4483-b6c8-0cf4c6c98ac4',
+        { email: email, password: pass }
+      )
+
+    }else{
+
+      response = await adminAuthClient.createUser({
       email: email,
       password: pass,
       email_confirm: true
     });
 
-    if (error) throw error
+  }
 
-    if(data.user.id){
+    if (response.error) throw response.error
+
+    if(response.data.user.id && !idMiembro){
       const { data: miembro, error: errorMiembro } = await supabaseClient
       .from('Miembros')
       .insert(
@@ -63,6 +75,24 @@ serve(async (req) => {
       }
     }
 
+    if(response.data.user.id && idMiembro){
+      const { data: miembro, error: errorMiembro } = await supabaseClient
+      .from('Miembros')
+      .update(
+          {
+            Nombre: name,
+            Email: email,
+            idPais: Number(idPais),
+            idProvincia: Number(idProvincia),
+            Direccion: direccion,
+            Celular: celular,
+            Telefono: telefono,
+            Apellido1: Apellido1,
+            Apellido2: Apellido2,
+            FechaNacimiento: new Date(fechaNacimiento),
+            idTipo: Number(idTipo)
+          }).eq('idMiembro', idMiembro);
+    }
 
     return new Response(JSON.stringify({ ok: 'si'  }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
